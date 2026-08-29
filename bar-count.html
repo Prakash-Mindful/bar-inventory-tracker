@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<meta name="theme-color" content="#14100E">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Bar Count">
+<title>Bar Count</title>
+<style>
+:root{
+  --bg:#14100E; --surface:#1C1815; --surface2:#241F1B; --line:#352E28;
+  --text:#F2ECE3; --muted:#9C8F84; --amber:#E5A23C; --sage:#83A67F; --red:#CE6A55;
+  --pad:13px;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--text);font-size:16px;
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  overscroll-behavior-y:contain}
+body{padding-bottom:84px}
+.num{font-family:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;font-variant-numeric:tabular-nums}
+.eyebrow{font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);font-weight:600}
+button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
+button:focus-visible,input:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+input,select,textarea{font:inherit;color:var(--text);background:var(--surface2);
+  border:1px solid var(--line);border-radius:9px;padding:9px 10px}
+
+header{position:sticky;top:0;z-index:30;background:rgba(20,16,14,.97);backdrop-filter:blur(8px);
+  border-bottom:1px solid var(--line);padding:10px var(--pad) 9px;padding-top:calc(10px + env(safe-area-inset-top))}
+.hrow{display:flex;align-items:center;gap:10px}
+.brand{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.15}
+.brand b{font-size:15px;font-weight:650}
+.shift{display:flex;border:1px solid var(--line);border-radius:9px;overflow:hidden}
+.shift button{padding:8px 12px;font-size:13px;font-weight:600;color:var(--muted)}
+.shift button[aria-pressed="true"]{background:var(--amber);color:#1A1208}
+.setup{display:flex;gap:8px;margin-top:9px}
+.setup input{flex:1;min-width:0;padding:8px 9px;font-size:14px}
+.progwrap{margin-top:9px;display:flex;align-items:center;gap:10px}
+.bar{flex:1;height:6px;border-radius:99px;background:var(--surface2);overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:var(--amber);transition:width .25s}
+.progtext{font-size:12px;color:var(--muted)}.progtext b{color:var(--text)}
+.sync{display:block;width:100%;text-align:left;margin-top:8px;font-size:11.5px;color:var(--muted);
+  display:flex;align-items:center;gap:7px}
+.dot{width:7px;height:7px;border-radius:99px;background:var(--muted);flex:0 0 auto}
+.dot.ok{background:var(--sage)}.dot.wait{background:var(--amber)}.dot.err{background:var(--red)}
+.sync u{color:var(--amber);text-decoration:none;border-bottom:1px solid rgba(229,162,60,.4)}
+
+.chips{display:flex;gap:7px;overflow-x:auto;padding:10px var(--pad);scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{white-space:nowrap;padding:7px 12px;border-radius:99px;border:1px solid var(--line);
+  font-size:13px;color:var(--muted);background:var(--surface)}
+.chip[aria-pressed="true"]{background:var(--text);color:var(--bg);border-color:var(--text);font-weight:600}
+.searchwrap{padding:0 var(--pad) 8px}.searchwrap input{width:100%}
+
+ul{list-style:none;margin:0;padding:0 var(--pad)}
+.grouphead{display:flex;justify-content:space-between;align-items:baseline;padding:15px 2px 7px}
+.grouphead span:last-child{font-size:11px;color:var(--muted)}
+li.row{background:var(--surface);border:1px solid var(--line);border-radius:12px;margin-bottom:7px;overflow:hidden}
+li.row.done{border-color:#3E4A3C}
+li.row.flag{border-color:#5C3830}
+li.row.open{border-color:var(--amber);background:var(--surface2)}
+.rowhead{display:flex;align-items:center;gap:11px;padding:12px 13px;width:100%;text-align:left}
+.sno{font-size:11px;color:var(--muted);width:24px;flex:0 0 24px;text-align:right}
+.nm{flex:1;min-width:0;font-size:15px;line-height:1.25}
+.nm small{display:block;font-size:11px;color:var(--muted);margin-top:2px}
+.val{min-width:58px;display:flex;flex-direction:column;align-items:flex-end;line-height:1.15}
+.val .v{font-size:19px;font-weight:600}
+.val .d{font-size:11px;font-weight:600;margin-top:2px;color:var(--muted)}
+.val .d.up{color:var(--sage)}
+.val .d.big{color:var(--red)}
+.val.empty .v{color:#4E4640;font-weight:400}
+.val.done .v{color:var(--sage)}
+.val.live .v{color:var(--amber)}
+
+.panel{display:none;padding:2px 13px 13px}
+li.open .panel{display:block}
+.plabel{display:flex;justify-content:space-between;align-items:baseline;margin:2px 0 7px}
+.plabel .eyebrow{letter-spacing:.14em}
+.plabel button{font-size:11.5px;color:var(--muted);text-decoration:underline}
+.level{display:flex;gap:3px;height:54px;touch-action:none;user-select:none}
+.level .s{flex:1;border-radius:5px;background:#2E2823;display:flex;align-items:flex-end;
+  justify-content:center;padding-bottom:4px;font-size:9px;color:#6A6057;font-family:ui-monospace,monospace}
+.level .s.on{background:linear-gradient(180deg,#EDB051,#C4832A);color:#2A1C08;font-weight:700}
+.ctrls{display:flex;gap:8px;align-items:center;margin-top:11px}
+.stepper{display:flex;align-items:center;background:var(--surface);border:1px solid var(--line);
+  border-radius:11px;padding:4px;flex:0 0 auto}
+.stepper button{width:42px;height:42px;font-size:22px;border-radius:8px;background:#2E2823}
+.stepper input{width:56px;height:42px;padding:0;text-align:center;font-size:19px;font-weight:600;
+  background:none;border:none;font-family:ui-monospace,monospace}
+.steplbl{font-size:11px;color:var(--muted);flex:1;line-height:1.3}
+.save{flex:1;padding:14px;border-radius:11px;background:var(--amber);color:#1A1208;font-weight:700;font-size:15px}
+.quick{display:flex;gap:6px;margin-top:9px}
+.quick button{flex:1;padding:9px 0;font-size:13px;background:var(--surface);border:1px solid var(--line);
+  border-radius:9px;color:var(--muted)}
+.warn{margin-top:9px;font-size:12.5px;color:var(--red)}
+.delta{margin-top:9px;font-size:12.5px;color:var(--muted)}
+.delta b{color:var(--text);font-weight:600}
+.delta b.up{color:var(--sage)}
+
+.foot{position:fixed;left:0;right:0;bottom:0;z-index:40;display:flex;gap:9px;
+  padding:10px var(--pad) calc(10px + env(safe-area-inset-bottom));
+  background:rgba(20,16,14,.97);backdrop-filter:blur(8px);border-top:1px solid var(--line)}
+.foot button{flex:1;padding:14px;border-radius:11px;font-size:15px;font-weight:650;
+  background:var(--surface);border:1px solid var(--line)}
+.foot button.primary{background:var(--amber);color:#1A1208;border-color:var(--amber)}
+
+.modal{position:fixed;inset:0;z-index:70;background:var(--bg);display:none;overflow:auto;
+  padding:calc(16px + env(safe-area-inset-top)) var(--pad) 40px}
+.modal.open{display:block}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px}
+.card h3{margin:0 0 10px;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.kv{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);font-size:14px}
+.kv:last-child{border:none}
+.missing{font-size:13px;color:var(--red);line-height:1.65}
+.actions{display:flex;flex-direction:column;gap:9px}
+.actions button{padding:15px;border-radius:12px;font-size:15px;font-weight:600;background:var(--surface2);border:1px solid var(--line)}
+.actions button.primary{background:var(--amber);color:#1A1208;border-color:var(--amber)}
+.x{font-size:26px;line-height:1;color:var(--muted);padding:0 6px}
+.help{font-size:12.5px;color:var(--muted);line-height:1.6;margin:8px 0 0}
+.help b{color:var(--text);font-weight:600}
+.toast{position:fixed;left:50%;bottom:94px;transform:translate(-50%,14px);z-index:90;background:var(--text);
+  color:var(--bg);padding:11px 16px;border-radius:99px;font-size:14px;font-weight:600;opacity:0;
+  pointer-events:none;transition:.22s;max-width:88vw;text-align:center}
+.toast.on{opacity:1;transform:translate(-50%,0)}
+
+/* ---- Add Item fab ---- */
+.fab{position:fixed;right:18px;bottom:calc(84px + env(safe-area-inset-bottom) + 12px);z-index:50;
+  width:52px;height:52px;border-radius:99px;background:var(--amber);color:#1A1208;
+  font-size:28px;line-height:1;display:flex;align-items:center;justify-content:center;
+  box-shadow:0 4px 18px rgba(229,162,60,.45);border:none;cursor:pointer;
+  transition:transform .15s,box-shadow .15s}
+.fab:active{transform:scale(.93);box-shadow:0 2px 8px rgba(229,162,60,.3)}
+
+/* ---- Add Item modal ---- */
+.modal-slide{position:fixed;inset:0;z-index:80;display:none;align-items:flex-end}
+.modal-slide.open{display:flex}
+.modal-slide-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(3px)}
+.modal-slide-sheet{
+  position:relative;z-index:1;width:100%;background:var(--surface);
+  border-radius:20px 20px 0 0;padding:20px var(--pad) calc(28px + env(safe-area-inset-bottom));
+  transform:translateY(100%);transition:transform .28s cubic-bezier(.32,1,.32,1)}
+.modal-slide.open .modal-slide-sheet{transform:translateY(0)}
+.drag-handle{width:36px;height:4px;border-radius:99px;background:var(--line);margin:0 auto 18px}
+.aiform label{display:block;font-size:12px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--muted);font-weight:600;margin-bottom:6px;margin-top:14px}
+.aiform label:first-of-type{margin-top:0}
+.aiform input,.aiform select{width:100%;padding:12px 11px;border-radius:10px;font-size:15px}
+.aiform select{-webkit-appearance:none;appearance:none;background-image:
+  url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%239C8F84' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 12px center;padding-right:32px}
+.aiform .moderow{display:flex;gap:8px;margin-top:6px}
+.aiform .moderow button{flex:1;padding:11px 8px;border-radius:10px;font-size:14px;font-weight:600;
+  border:1.5px solid var(--line);background:var(--surface2);color:var(--muted);transition:all .15s}
+.aiform .moderow button.sel{border-color:var(--amber);background:rgba(229,162,60,.12);color:var(--amber)}
+.aiform-actions{display:flex;gap:9px;margin-top:18px}
+.aiform-actions button{flex:1;padding:14px;border-radius:11px;font-size:15px;font-weight:700}
+.aiform-actions .btn-cancel{background:var(--surface2);border:1px solid var(--line);color:var(--muted)}
+.aiform-actions .btn-add{background:var(--amber);color:#1A1208;border:none}
+.custom-badge{display:inline-block;font-size:9.5px;font-weight:700;letter-spacing:.08em;
+  text-transform:uppercase;background:rgba(131,166,127,.18);color:var(--sage);
+  border:1px solid rgba(131,166,127,.35);border-radius:5px;padding:1px 5px;margin-left:6px;vertical-align:middle}
+.del-item{padding:3px 7px;font-size:12px;color:var(--red);border-radius:6px;
+  background:rgba(206,106,85,.1);border:1px solid rgba(206,106,85,.25);margin-left:6px}
+.del-item:hover{background:rgba(206,106,85,.22)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="hrow">
+    <div class="brand"><span class="eyebrow">Everyday &middot; Bar Count</span><b id="title">Morning count</b></div>
+    <div class="shift" role="group" aria-label="Shift">
+      <button id="btnAM" aria-pressed="true">Morning</button>
+      <button id="btnPM" aria-pressed="false">Night</button>
+    </div>
+  </div>
+  <div class="setup">
+    <input type="date" id="date" aria-label="Count date">
+    <input type="text" id="who" placeholder="Counted by" autocomplete="name" aria-label="Counted by">
+  </div>
+  <div class="progwrap">
+    <div class="bar"><i id="barfill"></i></div>
+    <div class="progtext"><b id="ndone">0</b>/<span id="ntot">0</span></div>
+  </div>
+  <button class="sync" id="syncBtn"><span class="dot" id="dot"></span><span id="syncTxt">No sheet connected &mdash; <u>set up</u></span></button>
+</header>
+
+<div class="chips" id="chips"></div>
+<div class="searchwrap"><input type="search" id="search" placeholder="Search item"></div>
+<ul id="list"></ul>
+
+<div class="foot">
+  <button id="btnNext">Next uncounted</button>
+  <button id="btnFinish" class="primary">Review</button>
+</div>
+
+<!-- Floating Add Item button -->
+<button class="fab" id="fabAdd" aria-label="Add new item" title="Add new item">+</button>
+
+<div class="modal" id="mReview">
+  <div class="hrow" style="margin-bottom:14px">
+    <div class="brand"><span class="eyebrow">Review</span><b id="mTitle">Count</b></div>
+    <button class="x" id="mClose">&times;</button>
+  </div>
+  <div class="card"><h3>Totals</h3><div id="mTotals"></div></div>
+  <div class="card" id="mMoveWrap"><h3>Change since previous count</h3><div id="mMove"></div></div>
+  <div class="card" id="mMissWrap"><h3>Not counted</h3><div class="missing" id="mMiss"></div></div>
+  <div class="actions">
+    <button class="primary" id="mSend">Send to Google Sheet</button>
+    <button id="mCopy">Copy rows for Sheets</button>
+    <button id="mCsv">Download CSV</button>
+    <button id="mNew">Start a new count</button>
+  </div>
+</div>
+
+<div class="modal" id="mSetup">
+  <div class="hrow" style="margin-bottom:14px">
+    <div class="brand"><span class="eyebrow">Setup</span><b>Connect your Google Sheet</b></div>
+    <button class="x" id="sClose">&times;</button>
+  </div>
+  <div class="card">
+    <h3>Web app URL</h3>
+    <input type="url" id="sUrl" placeholder="https://script.google.com/macros/s/.../exec" style="width:100%" inputmode="url">
+    <div class="actions" style="margin-top:11px">
+      <button class="primary" id="sTest">Save and test</button>
+      <button id="sPull">Pull latest counts from the sheet</button>
+    </div>
+    <p class="help">
+      In your Google Sheet: <b>Extensions &rsaquo; Apps Script</b>, paste the code from
+      <b>google-sheet-endpoint.gs</b>, then <b>Deploy &rsaquo; New deployment &rsaquo; Web app</b>,
+      set <b>Execute as: Me</b> and <b>Who has access: Anyone</b>. Copy the /exec URL it gives you and paste it above.
+    </p>
+  </div>
+  <div class="card">
+    <h3>Auto send</h3>
+    <div class="kv"><span>Send each item as it is counted</span>
+      <input type="checkbox" id="sAuto" style="width:22px;height:22px" checked></div>
+    <p class="help">Off means nothing leaves the phone until you press Send in Review. Counts are held on the phone either way, so a dead signal never loses work.</p>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- Add Item slide-up modal -->
+<div class="modal-slide" id="mAdd" role="dialog" aria-modal="true" aria-label="Add new item">
+  <div class="modal-slide-backdrop" id="mAddBackdrop"></div>
+  <div class="modal-slide-sheet">
+    <div class="drag-handle"></div>
+    <div class="hrow" style="margin-bottom:18px">
+      <div class="brand"><span class="eyebrow">Inventory</span><b>Add new item</b></div>
+      <button class="x" id="mAddClose">&times;</button>
+    </div>
+    <div class="aiform">
+      <label for="aiName">Item name</label>
+      <input id="aiName" type="text" placeholder="e.g. Aperol" autocomplete="off" maxlength="80">
+
+      <label for="aiCat">Category</label>
+      <select id="aiCat">
+        <option value="Liquor">Liquor</option>
+        <option value="Wine">Wine</option>
+        <option value="Beer">Beer</option>
+        <option value="Seltzer &amp; RTD">Seltzer &amp; RTD</option>
+        <option value="Mixers &amp; NA">Mixers &amp; NA</option>
+        <option value="__custom__">Other (type below)</option>
+      </select>
+      <input id="aiCatCustom" type="text" placeholder="Category name" maxlength="40"
+        style="margin-top:8px;display:none">
+
+      <label>Counting mode</label>
+      <div class="moderow">
+        <button type="button" id="aiTenths" class="sel" data-mode="tenths">Bottle tenths</button>
+        <button type="button" id="aiUnits"  class="" data-mode="units">Whole units</button>
+      </div>
+    </div>
+    <div class="aiform-actions">
+      <button type="button" class="btn-cancel" id="mAddCancel">Cancel</button>
+      <button type="button" class="btn-add"    id="mAddSave">Add item</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ---- custom items (persisted in localStorage) ---- */
+let CUSTOM = [];  // same shape as ITEMS entries, sno starts at 1001
+const allItems = () => [...ITEMS, ...CUSTOM];
+
+const ITEMS = [{"sno": 1, "name": "Cask", "category": "Liquor", "mode": "tenths"}, {"sno": 2, "name": "Skew Ball *", "category": "Liquor", "mode": "tenths"}, {"sno": 3, "name": "Sazerac Rye", "category": "Liquor", "mode": "tenths"}, {"sno": 4, "name": "Jefferson's Reserve *", "category": "Liquor", "mode": "tenths"}, {"sno": 5, "name": "Pegleg Porker *", "category": "Liquor", "mode": "tenths"}, {"sno": 6, "name": "Uncle Nearst 1856 *", "category": "Liquor", "mode": "tenths"}, {"sno": 7, "name": "Company Distilling", "category": "Liquor", "mode": "tenths"}, {"sno": 8, "name": "Larceny", "category": "Liquor", "mode": "tenths"}, {"sno": 9, "name": "Jefferson Ocean", "category": "Liquor", "mode": "tenths"}, {"sno": 10, "name": "Larceny", "category": "Liquor", "mode": "tenths"}, {"sno": 11, "name": "Basil Hayden", "category": "Liquor", "mode": "tenths"}, {"sno": 12, "name": "Knob Creek", "category": "Liquor", "mode": "tenths"}, {"sno": 13, "name": "Piggy Back *", "category": "Liquor", "mode": "tenths"}, {"sno": 14, "name": "FarmStock Rye", "category": "Liquor", "mode": "tenths"}, {"sno": 15, "name": "Bulleit 95 Rye *", "category": "Liquor", "mode": "tenths"}, {"sno": 16, "name": "Hirsch The Horizon", "category": "Liquor", "mode": "tenths"}, {"sno": 17, "name": "Bardstown *", "category": "Liquor", "mode": "tenths"}, {"sno": 18, "name": "Tennessee Waltz", "category": "Liquor", "mode": "tenths"}, {"sno": 19, "name": "Jim Beam Bourbon *", "category": "Liquor", "mode": "tenths"}, {"sno": 20, "name": "Crown Royal *", "category": "Liquor", "mode": "tenths"}, {"sno": 21, "name": "Crown Royal Peach", "category": "Liquor", "mode": "tenths"}, {"sno": 22, "name": "Captian Morgan Spiced Rum *", "category": "Liquor", "mode": "tenths"}, {"sno": 23, "name": "Dewars White Label *", "category": "Liquor", "mode": "tenths"}, {"sno": 24, "name": "The Glenlivet *", "category": "Liquor", "mode": "tenths"}, {"sno": 25, "name": "Grand Marnier", "category": "Liquor", "mode": "tenths"}, {"sno": 26, "name": "Jameson Black Barrel *", "category": "Liquor", "mode": "tenths"}, {"sno": 27, "name": "Jameson", "category": "Liquor", "mode": "tenths"}, {"sno": 28, "name": "Cointreau *", "category": "Liquor", "mode": "tenths"}, {"sno": 29, "name": "Martini & Rossi", "category": "Liquor", "mode": "tenths"}, {"sno": 30, "name": "Tanqueray", "category": "Liquor", "mode": "tenths"}, {"sno": 31, "name": "Hendrick's Gin", "category": "Liquor", "mode": "tenths"}, {"sno": 32, "name": "Jack Daniels *", "category": "Liquor", "mode": "tenths"}, {"sno": 33, "name": "Bombay Dry Gin *", "category": "Liquor", "mode": "tenths"}, {"sno": 34, "name": "Mount Gay Ecplise", "category": "Liquor", "mode": "tenths"}, {"sno": 35, "name": "Kahlua *", "category": "Liquor", "mode": "tenths"}, {"sno": 36, "name": "Jack Daniels Fire", "category": "Liquor", "mode": "tenths"}, {"sno": 37, "name": "Disaronno", "category": "Liquor", "mode": "tenths"}, {"sno": 38, "name": "Cincoro Tequila", "category": "Liquor", "mode": "tenths"}, {"sno": 39, "name": "Grey Gouse Vodka", "category": "Liquor", "mode": "tenths"}, {"sno": 40, "name": "Ketel One Vodka *", "category": "Liquor", "mode": "tenths"}, {"sno": 41, "name": "Absolut Watermleon *", "category": "Liquor", "mode": "tenths"}, {"sno": 42, "name": "Absolut Mandrin *", "category": "Liquor", "mode": "tenths"}, {"sno": 43, "name": "Absolut Vanilla", "category": "Liquor", "mode": "tenths"}, {"sno": 44, "name": "Dripping Springs Lemon", "category": "Liquor", "mode": "tenths"}, {"sno": 45, "name": "Pinnacle Cake *", "category": "Liquor", "mode": "tenths"}, {"sno": 46, "name": "Bols Amstrdam *", "category": "Liquor", "mode": "tenths"}, {"sno": 47, "name": "Razzmatazz", "category": "Liquor", "mode": "tenths"}, {"sno": 48, "name": "De Kuyper Sour Apple *", "category": "Liquor", "mode": "tenths"}, {"sno": 49, "name": "De Kuyper Melon *", "category": "Liquor", "mode": "tenths"}, {"sno": 50, "name": "De Kuyper Curacao *", "category": "Liquor", "mode": "tenths"}, {"sno": 51, "name": "Paula's Orange", "category": "Liquor", "mode": "tenths"}, {"sno": 52, "name": "Paula's Lemon", "category": "Liquor", "mode": "tenths"}, {"sno": 53, "name": "Noble Vines Cabernet Sauvignon 337 *", "category": "Wine", "mode": "units"}, {"sno": 54, "name": "Apothic Red *", "category": "Wine", "mode": "units"}, {"sno": 55, "name": "Noble Vines Pinot Noir 667 *", "category": "Wine", "mode": "units"}, {"sno": 56, "name": "Barefoot Cabernet Sauvignon Small *", "category": "Wine", "mode": "units"}, {"sno": 57, "name": "Barefoot Merlot Small *", "category": "Wine", "mode": "units"}, {"sno": 58, "name": "Bourbon Cream", "category": "Liquor", "mode": "tenths"}, {"sno": 59, "name": "Vermouth", "category": "Liquor", "mode": "tenths"}, {"sno": 60, "name": "Dark House", "category": "Mixers & NA", "mode": "tenths"}, {"sno": 61, "name": "Bailey's The Orginal *", "category": "Liquor", "mode": "tenths"}, {"sno": 62, "name": "Deep Eddy Orange *", "category": "Liquor", "mode": "tenths"}, {"sno": 63, "name": "Zonin Prosecco", "category": "Wine", "mode": "units"}, {"sno": 64, "name": "Martini & Rossi Extra Dry", "category": "Liquor", "mode": "tenths"}, {"sno": 65, "name": "Castello", "category": "Wine", "mode": "units"}, {"sno": 66, "name": "Fire Ball", "category": "Liquor", "mode": "tenths"}, {"sno": 67, "name": "Liberty Creek Chardonnay", "category": "Wine", "mode": "units"}, {"sno": 68, "name": "Bloody Mary", "category": "Mixers & NA", "mode": "tenths"}, {"sno": 69, "name": "Four Roses *", "category": "Liquor", "mode": "tenths"}, {"sno": 70, "name": "Tito's", "category": "Liquor", "mode": "tenths"}, {"sno": 71, "name": "Port Royal Rum", "category": "Liquor", "mode": "tenths"}, {"sno": 72, "name": "Margaritaville Silver", "category": "Liquor", "mode": "tenths"}, {"sno": 73, "name": "Margaritaville Gold", "category": "Liquor", "mode": "tenths"}, {"sno": 74, "name": "Mr. Boston Triple Sec", "category": "Liquor", "mode": "tenths"}, {"sno": 75, "name": "Skyy Vodka *", "category": "Liquor", "mode": "tenths"}, {"sno": 76, "name": "Budwiser (check in back keg station)", "category": "Beer", "mode": "units"}, {"sno": 77, "name": "Bud Light (check in back keg station)", "category": "Beer", "mode": "units"}, {"sno": 78, "name": "Corona Extra (check in back keg station)", "category": "Beer", "mode": "units"}, {"sno": 79, "name": "Coors Light (check in back keg station)", "category": "Beer", "mode": "units"}, {"sno": 80, "name": "Miller Light (check in back keg station)", "category": "Beer", "mode": "units"}, {"sno": 81, "name": "Yuengling (check in back keg station)", "category": "Beer", "mode": "units"}, {"sno": 82, "name": "Angry Orchard (check in back keg station)", "category": "Beer", "mode": "units"}, {"sno": 83, "name": "Corona Premier (check in back keg station)", "category": "Beer", "mode": "units"}, {"sno": 84, "name": "Michelob Ultra (check in back keg station)", "category": "Beer", "mode": "units"}, {"sno": 85, "name": "Highnoon Black Cherry", "category": "Seltzer & RTD", "mode": "units"}, {"sno": 86, "name": "Highnoon Pineapple", "category": "Seltzer & RTD", "mode": "units"}, {"sno": 87, "name": "Highnoon Watermelon", "category": "Seltzer & RTD", "mode": "units"}, {"sno": 88, "name": "Highnoon Grapefruit", "category": "Seltzer & RTD", "mode": "units"}, {"sno": 89, "name": "Ginger Ale", "category": "Mixers & NA", "mode": "units"}, {"sno": 90, "name": "Grape Fruit Juice", "category": "Mixers & NA", "mode": "units"}, {"sno": 91, "name": "Blue Ribbon", "category": "Beer", "mode": "units"}, {"sno": 92, "name": "Truly Cherry", "category": "Seltzer & RTD", "mode": "units"}, {"sno": 93, "name": "Truly Strawberrylime", "category": "Seltzer & RTD", "mode": "units"}, {"sno": 94, "name": "Truly Blueberry", "category": "Seltzer & RTD", "mode": "units"}, {"sno": 95, "name": "Truly Wildberry", "category": "Seltzer & RTD", "mode": "units"}, {"sno": 96, "name": "Athletic", "category": "Beer", "mode": "units"}, {"sno": 97, "name": "Brooklyn Brewery Non Alcoholic Blue", "category": "Beer", "mode": "units"}, {"sno": 98, "name": "Brooklyn Brewery Non Alcoholic Pink", "category": "Beer", "mode": "units"}, {"sno": 99, "name": "Brooklyn Brewery Non Alcohlic Green", "category": "Beer", "mode": "units"}, {"sno": 100, "name": "Brooklyn Brewery Non Alcholic Yellow", "category": "Beer", "mode": "units"}, {"sno": 101, "name": "Tonic water", "category": "Mixers & NA", "mode": "units"}, {"sno": 102, "name": "Ginger Beer", "category": "Mixers & NA", "mode": "units"}, {"sno": 103, "name": "flvrNA", "category": "Mixers & NA", "mode": "units"}, {"sno": 104, "name": "Espresso Martini Mix", "category": "Mixers & NA", "mode": "units"}, {"sno": 105, "name": "Cucumber mint", "category": "Mixers & NA", "mode": "units"}, {"sno": 106, "name": "Modelo Negra", "category": "Beer", "mode": "units"}, {"sno": 107, "name": "Creme de Cacao *", "category": "Liquor", "mode": "tenths"}, {"sno": 108, "name": "Rum Chata *", "category": "Liquor", "mode": "tenths"}, {"sno": 109, "name": "Malibu *", "category": "Liquor", "mode": "tenths"}, {"sno": 110, "name": "London Dry Gin *", "category": "Liquor", "mode": "tenths"}, {"sno": 111, "name": "MR.Black Coffee *", "category": "Liquor", "mode": "tenths"}, {"sno": 112, "name": "De Kuyper Buttershots *", "category": "Liquor", "mode": "tenths"}, {"sno": 113, "name": "Dripping Springs Orange", "category": "Liquor", "mode": "tenths"}, {"sno": 114, "name": "No Name Bottle Yellow *", "category": "Liquor", "mode": "tenths"}, {"sno": 115, "name": "Jameson Orange *", "category": "Liquor", "mode": "tenths"}, {"sno": 116, "name": "Cigar Box *", "category": "Wine", "mode": "units"}, {"sno": 117, "name": "Liberty Creek Pinot Noir *", "category": "Wine", "mode": "units"}];
+let CATS = ["Liquor","Wine","Beer","Seltzer & RTD","Mixers & NA"];
+const HEAD = ["Date","Shift","No","Item","Category","Qty","Unit","Counted by","Key"];
+
+const mem = {};
+const Store = {
+  async get(k){
+    try{ if(window.storage){ const r = await window.storage.get(k); return r? JSON.parse(r.value): null; } }catch(e){}
+    try{ const v = localStorage.getItem(k); return v? JSON.parse(v): null; }catch(e){}
+    return mem[k] ?? null;
+  },
+  async set(k,v){
+    mem[k]=v;
+    try{ if(window.storage){ await window.storage.set(k, JSON.stringify(v)); return; } }catch(e){}
+    try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){}
+  }
+};
+
+let S = { date:todayISO(), shift:"Morning", who:"", vals:{}, modes:{}, pending:{}, deltas:{} };
+let CFG = { url:"", auto:true };
+let PREV = {};   // sno -> {qty, date, shift}  the count before this one
+let filter="All", q="", openSno=null, sending=false, syncState="idle", timer=null;
+
+const $ = s => document.querySelector(s);
+function todayISO(){ const d=new Date(); return new Date(d.getTime()-d.getTimezoneOffset()*6e4).toISOString().slice(0,10); }
+const fmt = (v,m) => m==="units" ? String(Math.round(v)) : Number(v).toFixed(1);
+const esc = s => String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const modeOf = it => S.modes[it.sno] || it.mode;
+
+(async function boot(){
+  const d = await Store.get("count:draft"); if(d) S = Object.assign(S, d);
+  CFG = Object.assign(CFG, (await Store.get("count:cfg")) || {});
+  PREV = (await Store.get("count:prev")) || {};
+  CUSTOM = (await Store.get("count:custom")) || [];
+  rebuildCats();
+  $("#date").value = S.date; $("#who").value = S.who;
+  $("#sUrl").value = CFG.url; $("#sAuto").checked = CFG.auto;
+  setShift(S.shift, true); renderChips(); render(); paintSync();
+  setInterval(()=>{ if(CFG.url && Object.keys(S.pending).length && navigator.onLine) flush(true); }, 20000);
+  window.addEventListener("online", ()=> flush(true));
+  if(CFG.url) pullLatest(true);
+})();
+const save = ()=> Store.set("count:draft", S);
+
+$("#date").onchange = e => { S.date=e.target.value; save(); };
+$("#who").oninput  = e => { S.who=e.target.value; save(); };
+$("#btnAM").onclick = ()=> setShift("Morning");
+$("#btnPM").onclick = ()=> setShift("Night");
+function setShift(s,quiet){
+  S.shift=s;
+  $("#btnAM").setAttribute("aria-pressed", s==="Morning");
+  $("#btnPM").setAttribute("aria-pressed", s==="Night");
+  $("#title").textContent = s+" count";
+  if(!quiet) save();
+}
+
+function rebuildCats(){
+  const extra = CUSTOM.map(i=>i.category).filter(c=>!CATS.includes(c));
+  const base = ["Liquor","Wine","Beer","Seltzer & RTD","Mixers & NA"];
+  CATS = [...base, ...extra];
+}
+
+function renderChips(){
+  const w=$("#chips"); w.innerHTML="";
+  ["All","Left to count",...CATS].forEach(c=>{
+    const b=document.createElement("button");
+    b.className="chip"; b.textContent=c; b.setAttribute("aria-pressed", c===filter);
+    b.onclick=()=>{ filter=c; renderChips(); render(); };
+    w.appendChild(b);
+  });
+}
+$("#search").oninput = e => { q=e.target.value.toLowerCase().trim(); render(); };
+
+function visible(){
+  return allItems().filter(it=>{
+    if(q && !it.name.toLowerCase().includes(q)) return false;
+    if(filter==="All") return true;
+    if(filter==="Left to count") return S.vals[it.sno]===undefined || it.sno===openSno;
+    return it.category===filter;
+  });
+}
+function prevOf(sno){ const p=PREV[sno]; return p && typeof p.qty==="number" ? p : null; }
+function deltaOf(sno,v){ const p=prevOf(sno); return (p && v!==undefined) ? +(v-p.qty).toFixed(2) : null; }
+function isOdd(sno,v){
+  const p=prevOf(sno);
+  return v!==undefined && p!==null && Math.abs(v-p.qty) > Math.max(4, p.qty*1.5);
+}
+function signed(d,mode){
+  const a = mode==="units" ? String(Math.abs(Math.round(d))) : Math.abs(d).toFixed(1);
+  return (d>0?"+":d<0?"\u2212":"\u00B1") + a;
+}
+function whenTxt(p){
+  if(!p || !p.date) return "";
+  const same = p.date===S.date;
+  return same ? `this ${String(p.shift||"").toLowerCase()}` : `${p.date} ${String(p.shift||"").toLowerCase()}`.trim();
+}
+
+/* ---------- list with inline entry ---------- */
+function render(){
+  const list=$("#list"); list.innerHTML="";
+  let lastCat=null;
+  visible().forEach(it=>{
+    if(filter==="All" && it.category!==lastCat){
+      lastCat=it.category;
+      const h=document.createElement("div"); h.className="grouphead";
+      const catCount = allItems().filter(x=>x.category===it.category).length;
+      h.innerHTML=`<span class="eyebrow">${it.category}</span><span>${catCount} items</span>`;
+      list.appendChild(h);
+    }
+    list.appendChild(rowEl(it));
+  });
+  const total=allItems().length;
+  const done=Object.keys(S.vals).length;
+  $("#ndone").textContent=done; $("#ntot").textContent=total;
+  $("#barfill").style.width=(done/total*100)+"%";
+}
+
+function rowEl(it){
+  const li=document.createElement("li");
+  const v=S.vals[it.sno], mode=modeOf(it), isOpen=openSno===it.sno;
+  const isCustom = it.sno >= 1001;
+  li.className="row"+(v!==undefined?" done":"")+(isOdd(it.sno,v)?" flag":"")+(isOpen?" open":"");
+  li.dataset.sno=it.sno;
+
+  const p=prevOf(it.sno), d=deltaOf(it.sno,v);
+  const head=document.createElement("button");
+  head.className="rowhead"; head.type="button";
+  const customBadge = isCustom ? `<span class="custom-badge">Custom</span>` : "";
+  head.innerHTML=`<span class="sno num">${it.sno>=1001?"✦":it.sno}</span>
+    <span class="nm">${esc(it.name)}${customBadge}${p?`<small>was ${fmt(p.qty,mode)}${whenTxt(p)?" · "+whenTxt(p):""}</small>`:""}</span>
+    <span class="val num ${isOpen?"live":(v===undefined?"empty":"done")}" data-val>
+      <span class="v">${v===undefined?"–":fmt(v,mode)}</span>
+      ${d!==null?`<span class="d ${d>0?"up":""} ${isOdd(it.sno,v)?"big":""}">${signed(d,mode)}</span>`:""}
+    </span>`;
+  head.onclick=()=>{ openSno = isOpen? null : it.sno; render(); if(!isOpen) scrollTo(it.sno); };
+  li.appendChild(head);
+
+  if(isOpen){
+    li.appendChild(panelEl(it));
+    if(isCustom){
+      const delBtn=document.createElement("button");
+      delBtn.className="del-item"; delBtn.textContent="Remove item";
+      delBtn.style.cssText="display:block;margin:0 13px 13px auto";
+      delBtn.onclick=()=>removeCustomItem(it.sno);
+      li.appendChild(delBtn);
+    }
+  }
+  return li;
+}
+function scrollTo(sno){
+  requestAnimationFrame(()=>{
+    const el=document.querySelector(`li[data-sno="${sno}"]`);
+    if(el) el.scrollIntoView({block:"center", behavior:"smooth"});
+  });
+}
+
+function panelEl(it){
+  const mode=modeOf(it);
+  const start = S.vals[it.sno] !== undefined ? S.vals[it.sno] : 0;
+  const d = { full: mode==="units" ? Math.round(start) : Math.floor(start+1e-9),
+              part: mode==="units" ? 0 : +(start-Math.floor(start+1e-9)).toFixed(1) };
+  const val = ()=> mode==="units" ? d.full : +(d.full+d.part).toFixed(1);
+
+  const p=document.createElement("div"); p.className="panel";
+  p.innerHTML = mode==="units"
+  ? `<div class="plabel"><span class="eyebrow">Whole units</span><button data-swap>Count as part bottles</button></div>
+     <div class="ctrls">
+       <div class="stepper">
+         <button data-m>&minus;</button>
+         <input data-n inputmode="numeric" pattern="[0-9]*" value="${d.full}" aria-label="Quantity">
+         <button data-p>+</button>
+       </div>
+       <button class="save" data-save>Save &amp; next</button>
+     </div>
+     <div class="quick"><button data-add="1">+1</button><button data-add="5">+5</button>
+       <button data-add="10">+10</button><button data-add="24">+24</button><button data-zero>0</button></div>
+     <div class="delta" data-delta></div>
+     <div class="warn" data-warn style="display:none"></div>`
+  : `<div class="plabel"><span class="eyebrow">Open bottle &mdash; tap the level</span><button data-swap>Count as whole units</button></div>
+     <div class="level" data-level></div>
+     <div class="ctrls">
+       <div class="stepper">
+         <button data-m>&minus;</button>
+         <input data-n inputmode="numeric" pattern="[0-9]*" value="${d.full}" aria-label="Sealed backups">
+         <button data-p>+</button>
+       </div>
+       <span class="steplbl">sealed<br>backups</span>
+       <button class="save" data-save>Save &amp; next</button>
+     </div>
+     <div class="delta" data-delta></div>
+     <div class="warn" data-warn style="display:none"></div>`;
+
+  const valEl = ()=> document.querySelector(`li[data-sno="${it.sno}"] [data-val]`);
+  const warnEl = p.querySelector("[data-warn]");
+  const numEl = p.querySelector("[data-n]");
+
+  const deltaEl = p.querySelector("[data-delta]");
+  function paint(){
+    const v=val();
+    const ve=valEl(); if(ve){ ve.querySelector(".v").textContent=fmt(v,mode); ve.className="val num live"; }
+    if(numEl && document.activeElement!==numEl) numEl.value=d.full;
+    const lv=p.querySelector("[data-level]");
+    if(lv){
+      lv.innerHTML="";
+      for(let i=1;i<=10;i++){
+        const s=document.createElement("div");
+        s.className="s"+(d.part>=i/10-1e-9?" on":"");
+        s.textContent=(i/10).toFixed(1).slice(1);
+        lv.appendChild(s);
+      }
+    }
+    const pr=prevOf(it.sno);
+    if(pr){
+      const d=+(v-pr.qty).toFixed(2);
+      deltaEl.innerHTML = `Previous <b>${fmt(pr.qty,mode)}</b>${whenTxt(pr)?" ("+whenTxt(pr)+")":""} &nbsp;·&nbsp; change <b class="${d>0?"up":""}">${signed(d,mode)}</b>`;
+    } else {
+      deltaEl.textContent = "No previous count on record — this one becomes the baseline";
+    }
+    const odd=pr!==null && Math.abs(v-pr.qty)>Math.max(4,pr.qty*1.5);
+    warnEl.style.display=odd?"block":"none";
+    if(odd) warnEl.textContent=`That is a big move from ${fmt(pr.qty,mode)} — double check`;
+  }
+
+  const lv=p.querySelector("[data-level]");
+  if(lv){
+    const setFromX=e=>{
+      const r=lv.getBoundingClientRect();
+      const x=(e.touches?e.touches[0].clientX:e.clientX)-r.left;
+      d.part=Math.min(1,Math.max(0,Math.round(x/r.width*10)/10));
+      paint();
+    };
+    let drag=false;
+    lv.addEventListener("pointerdown",e=>{ drag=true; lv.setPointerCapture(e.pointerId); setFromX(e); });
+    lv.addEventListener("pointermove",e=>{ if(drag) setFromX(e); });
+    lv.addEventListener("pointerup",()=>drag=false);
+    lv.addEventListener("pointercancel",()=>drag=false);
+  }
+  p.querySelector("[data-m]").onclick=()=>{ d.full=Math.max(0,d.full-1); paint(); };
+  p.querySelector("[data-p]").onclick=()=>{ d.full++; paint(); };
+  numEl.oninput=()=>{ d.full=Math.max(0,parseInt(numEl.value.replace(/\D/g,""),10)||0); paint(); };
+  p.querySelectorAll("[data-add]").forEach(b=> b.onclick=()=>{ d.full+=+b.dataset.add; paint(); });
+  const z=p.querySelector("[data-zero]"); if(z) z.onclick=()=>{ d.full=0; paint(); };
+  p.querySelector("[data-swap]").onclick=()=>{
+    S.modes[it.sno] = mode==="units" ? "tenths" : "units"; save(); render(); scrollTo(it.sno);
+  };
+  p.querySelector("[data-save]").onclick=()=>{
+    S.vals[it.sno]=val(); S.pending[it.sno]=1; save();
+    const nxt=nextUncounted(it.sno);
+    openSno = nxt? nxt.sno : null;
+    render();
+    if(nxt) scrollTo(nxt.sno); else toast(allDone()?"Every item counted":"Section done");
+    if(CFG.url && CFG.auto) queueFlush();
+  };
+  setTimeout(paint,0);
+  return p;
+}
+
+const allDone = ()=> allItems().every(x=>S.vals[x.sno]!==undefined);
+function nextUncounted(after){
+  const pool=visible();
+  const i=pool.findIndex(x=>x.sno===after);
+  for(let j=i+1;j<pool.length;j++) if(S.vals[pool[j].sno]===undefined) return pool[j];
+  return pool.find(x=>S.vals[x.sno]===undefined) || null;
+}
+
+/* ---- add / remove custom items ---- */
+function nextCustomSno(){
+  if(!CUSTOM.length) return 1001;
+  return Math.max(...CUSTOM.map(i=>i.sno))+1;
+}
+function saveCustom(){ Store.set("count:custom", CUSTOM); }
+
+function addCustomItem(name, category, mode){
+  const it={sno:nextCustomSno(), name, category, mode, custom:true};
+  CUSTOM.push(it);
+  saveCustom(); rebuildCats(); renderChips(); render();
+  toast(`"${name}" added to ${category}`);
+}
+
+function removeCustomItem(sno){
+  const it=CUSTOM.find(i=>i.sno===sno);
+  if(!it) return;
+  if(!confirm(`Remove "${it.name}" from this session?`)) return;
+  CUSTOM=CUSTOM.filter(i=>i.sno!==sno);
+  delete S.vals[sno]; delete S.pending[sno];
+  saveCustom(); save(); rebuildCats(); renderChips();
+  openSno=null; render();
+  toast(`"${it.name}" removed`);
+}
+
+/* ---- Add Item modal wiring ---- */
+(function initAddModal(){
+  let aiMode="tenths";
+
+  function open(){
+    $("#aiName").value="";
+    $("#aiCat").value="Liquor";
+    $("#aiCatCustom").style.display="none";
+    $("#aiCatCustom").value="";
+    setMode("tenths");
+    $("#mAdd").classList.add("open");
+    setTimeout(()=>$("#aiName").focus(),320);
+  }
+  function close(){
+    $("#mAdd").classList.remove("open");
+  }
+  function setMode(m){
+    aiMode=m;
+    $("#aiTenths").classList.toggle("sel",m==="tenths");
+    $("#aiUnits").classList.toggle("sel",m==="units");
+  }
+
+  $("#fabAdd").onclick=open;
+  $("#mAddClose").onclick=close;
+  $("#mAddCancel").onclick=close;
+  $("#mAddBackdrop").onclick=close;
+
+  $("#aiCat").onchange=function(){
+    $("#aiCatCustom").style.display=this.value==="__custom__"?"block":"none";
+    if(this.value==="__custom__") $("#aiCatCustom").focus();
+  };
+
+  $("#aiTenths").onclick=()=>setMode("tenths");
+  $("#aiUnits").onclick=()=>setMode("units");
+
+  $("#mAddSave").onclick=()=>{
+    const name=$("#aiName").value.trim();
+    if(!name){ toast("Please enter an item name"); $("#aiName").focus(); return; }
+    let cat=$("#aiCat").value;
+    if(cat==="__custom__"){
+      cat=$("#aiCatCustom").value.trim();
+      if(!cat){ toast("Please enter a category name"); $("#aiCatCustom").focus(); return; }
+    }
+    close();
+    addCustomItem(name, cat, aiMode);
+  };
+
+  // Allow swiping the sheet down to close
+  let startY=0;
+  const sheet=document.querySelector(".modal-slide-sheet");
+  sheet.addEventListener("touchstart",e=>{ startY=e.touches[0].clientY; },{passive:true});
+  sheet.addEventListener("touchend",e=>{ if(e.changedTouches[0].clientY-startY>80) close(); },{passive:true});
+})();
+$("#btnNext").onclick=()=>{
+  const n=allItems().find(x=>S.vals[x.sno]===undefined);
+  if(!n) return toast("Nothing left to count");
+  openSno=n.sno; render(); scrollTo(n.sno);
+};
+
+/* ---------- sheet sync ---------- */
+function rowsFor(list){
+  return list.map(i=>[S.date,S.shift,i.sno,i.name,i.category,
+    Number(fmt(S.vals[i.sno],modeOf(i))), modeOf(i)==="units"?"unit":"bottle", S.who||"",
+    `${S.date}|${S.shift}|${i.sno}`]);
+}
+const pendingItems = ()=> allItems().filter(i=>S.pending[i.sno] && S.vals[i.sno]!==undefined);
+const countedItems = ()=> allItems().filter(i=>S.vals[i.sno]!==undefined);
+
+function queueFlush(){ clearTimeout(timer); timer=setTimeout(()=>flush(true),2200); }
+
+async function flush(quiet){
+  if(sending || !CFG.url) return;
+  const items=pendingItems();
+  if(!items.length){ syncState="idle"; paintSync(); return; }
+  sending=true; syncState="sending"; paintSync();
+  try{
+    const res=await fetch(CFG.url,{
+      method:"POST", redirect:"follow",
+      headers:{"Content-Type":"text/plain;charset=utf-8"},
+      body:JSON.stringify({rows:rowsFor(items)})
+    });
+    const out=await res.json();
+    if(!out.ok) throw new Error(out.error||"rejected");
+    items.forEach(i=> delete S.pending[i.sno]);
+    (out.deltas||[]).forEach(d=>{ S.deltas[d.no] = d; });
+    save(); syncState="ok"; paintSync(); render();
+    if(!quiet){
+      const moved=(out.deltas||[]).filter(d=>d.delta!==null && d.delta!==undefined);
+      toast(moved.length===1
+        ? `Saved · ${moved[0].item} ${signed(moved[0].delta, moved[0].unit==="unit"?"units":"tenths")}`
+        : `${items.length} item${items.length>1?"s":""} saved to the sheet`);
+    }
+  }catch(e){
+    syncState="err"; paintSync();
+    if(!quiet) toast("Could not reach the sheet — kept on the phone");
+  }finally{ sending=false; }
+}
+async function pullLatest(quiet){
+  if(!CFG.url) { if(!quiet) toast("Connect the sheet first"); return; }
+  try{
+    const res=await fetch(CFG.url+"?action=latest&t="+Date.now(),{method:"GET",redirect:"follow"});
+    const out=await res.json();
+    if(!out.ok) throw new Error("bad reply");
+    const fresh={};
+    Object.keys(out.latest||{}).forEach(no=>{
+      const r=out.latest[no];
+      // a record from this same count is not a "previous" count
+      if(r.date===S.date && r.shift===S.shift) { if(r.prev!==null && r.prev!==undefined) fresh[no]={qty:r.prev, date:r.prevDate, shift:r.prevShift}; return; }
+      fresh[no]={qty:r.qty, date:r.date, shift:r.shift};
+    });
+    PREV=fresh; Store.set("count:prev",PREV); render();
+    if(!quiet) toast(`Previous counts loaded for ${Object.keys(fresh).length} items`);
+  }catch(e){ if(!quiet) toast("Could not read the sheet"); }
+}
+$("#sPull").onclick=()=> pullLatest(false);
+
+function paintSync(){
+  const n=pendingItems().length, dot=$("#dot"), t=$("#syncTxt");
+  dot.className="dot";
+  if(!CFG.url){ t.innerHTML="No sheet connected — <u>set up</u>"; return; }
+  if(syncState==="sending"){ dot.classList.add("wait"); t.textContent="Sending…"; return; }
+  if(syncState==="err"){ dot.classList.add("err"); t.innerHTML=`${n} waiting — <u>retry</u>`; return; }
+  if(n){ dot.classList.add("wait"); t.innerHTML=`${n} waiting — <u>send now</u>`; return; }
+  dot.classList.add("ok"); t.textContent="Sheet up to date";
+}
+$("#syncBtn").onclick=()=>{
+  if(!CFG.url) return $("#mSetup").classList.add("open");
+  if(pendingItems().length) flush(false); else $("#mSetup").classList.add("open");
+};
+$("#sClose").onclick=()=> $("#mSetup").classList.remove("open");
+$("#sAuto").onchange=e=>{ CFG.auto=e.target.checked; Store.set("count:cfg",CFG); };
+$("#sTest").onclick=async()=>{
+  CFG.url=$("#sUrl").value.trim(); Store.set("count:cfg",CFG); paintSync();
+  if(!CFG.url) return toast("Paste the web app URL first");
+  toast("Testing…");
+  try{
+    const res=await fetch(CFG.url,{method:"POST",redirect:"follow",
+      headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({ping:true})});
+    const out=await res.json();
+    if(out.ok){ toast("Connected to the sheet"); $("#mSetup").classList.remove("open"); flush(true); }
+    else toast("Sheet replied with an error");
+  }catch(e){ toast("No reply — check the URL and that access is set to Anyone"); }
+};
+
+/* ---------- review ---------- */
+$("#btnFinish").onclick=()=>{
+  $("#mTitle").textContent=`${S.shift} · ${S.date}`;
+  const t=$("#mTotals"); t.innerHTML="";
+  CATS.forEach(c=>{
+    const its=allItems().filter(i=>i.category===c);
+    if(!its.length) return;
+    const n=its.filter(i=>S.vals[i.sno]!==undefined).length;
+    const sum=its.reduce((a,i)=>a+(S.vals[i.sno]||0),0);
+    t.insertAdjacentHTML("beforeend",
+      `<div class="kv"><span>${c} <span style="color:var(--muted)">${n}/${its.length}</span></span><b class="num">${sum.toFixed(1)}</b></div>`);
+  });
+  const moves=allItems().filter(i=>S.vals[i.sno]!==undefined && deltaOf(i.sno,S.vals[i.sno])!==null)
+    .map(i=>({it:i, d:deltaOf(i.sno,S.vals[i.sno])}))
+    .filter(m=>Math.abs(m.d)>0.001)
+    .sort((a,b)=>Math.abs(b.d)-Math.abs(a.d)).slice(0,20);
+  $("#mMoveWrap").style.display = moves.length?"block":"none";
+  $("#mMove").innerHTML = moves.map(m=>{
+    const mode=modeOf(m.it), pr=prevOf(m.it.sno);
+    return `<div class="kv"><span>${esc(m.it.name)}<br><span style="color:var(--muted);font-size:12px">${fmt(pr.qty,mode)} → ${fmt(S.vals[m.it.sno],mode)}</span></span>
+      <b class="num" style="color:${m.d>0?"var(--sage)":"var(--text)"}">${signed(m.d,mode)}</b></div>`;
+  }).join("");
+
+  const miss=allItems().filter(i=>S.vals[i.sno]===undefined);
+  $("#mMissWrap").style.display=miss.length?"block":"none";
+  $("#mMiss").textContent=miss.map(m=>`${m.sno>=1001?"✦":m.sno}. ${m.name}`).join(" · ");
+  $("#mReview").classList.add("open");
+};
+$("#mClose").onclick=()=> $("#mReview").classList.remove("open");
+$("#mSend").onclick=()=>{
+  if(!CFG.url){ $("#mReview").classList.remove("open"); return $("#mSetup").classList.add("open"); }
+  countedItems().forEach(i=> S.pending[i.sno]=1);
+  save(); flush(false);
+};
+$("#mCopy").onclick=async()=>{
+  const tsv=rowsFor(countedItems()).map(r=>r.join("\t")).join("\n");
+  try{ await navigator.clipboard.writeText(tsv); toast("Copied — paste into the Counts tab"); }
+  catch(e){ toast("Copy blocked here, use Download CSV"); }
+};
+$("#mCsv").onclick=()=>{
+  const csv=[HEAD,...rowsFor(countedItems())].map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(",")).join("\n");
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));
+  a.download=`count_${S.date}_${S.shift.toLowerCase()}.csv`; a.click(); URL.revokeObjectURL(a.href);
+};
+$("#mNew").onclick=()=>{
+  const n=pendingItems().length;
+  if(n && !confirm(`${n} item(s) have not reached the sheet yet. Start a new count anyway?`)) return;
+  if(!n && !confirm("Clear this count and start a new one?")) return;
+  countedItems().forEach(i=> PREV[i.sno]={qty:S.vals[i.sno], date:S.date, shift:S.shift});
+  Store.set("count:prev",PREV);
+  S.vals={}; S.pending={}; S.deltas={}; S.date=todayISO();
+  S.shift = S.shift==="Morning" ? "Night" : "Morning";
+  $("#date").value=S.date; setShift(S.shift); openSno=null;
+  // Custom items carry forward into the new count
+  save(); render(); paintSync(); $("#mReview").classList.remove("open"); toast("New count started");
+  if(CFG.url) pullLatest(true);
+};
+
+let tt;
+function toast(m){ const t=$("#toast"); t.textContent=m; t.classList.add("on");
+  clearTimeout(tt); tt=setTimeout(()=>t.classList.remove("on"),2400); }
+</script>
+</body>
+</html>
